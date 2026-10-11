@@ -1,0 +1,94 @@
+name: Daily LeetCode submit
+
+on:
+  schedule:
+    # Option A (public repo): one run a day at 12:35 UTC (18:05 IST), script sleeps 0-5 h.
+    - cron: "35 12 * * *"
+    # Option B (private repo): replace the line above with an hourly cron and
+    # set DELAY_MODE=hourly + the DELAY_SALT secret below.
+    # - cron: "7 * * * *"
+  workflow_dispatch:
+    inputs:
+      no_delay:
+        description: "Skip random delay"
+        type: boolean
+        default: true
+      solution:
+        description: "Force a specific solution file (e.g. two-sum.py3), blank = rotate"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: leetcode-submit
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Submit
+        id: submit
+        run: python submit.py
+        env:
+          LC_SESSION: ${{ secrets.LC_SESSION }}
+          LC_CSRF: ${{ secrets.LC_CSRF }}
+          NO_DELAY: ${{ inputs.no_delay }}
+          SOLUTION: ${{ inputs.solution }}
+          DELAY_MODE: sleep
+          MAX_DELAY_HOURS: "5"
+          DELAY_SALT: ${{ secrets.DELAY_SALT }}
+
+      - name: Commit log
+        if: always() && steps.submit.outputs.result == 'submitted'
+        run: |
+          git config user.name  "Sourav Rajvi"
+          git config user.email "souravrajvi0@gmail.com"
+          git add log/
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update submission log"
+          git pull --rebase
+          git push
+
+      - name: Open issue on session expiry or block
+        if: failure() && (steps.submit.outputs.failure == 'session_expired' || steps.submit.outputs.failure == 'blocked')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASON: ${{ steps.submit.outputs.failure }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$REASON" = "session_expired" ]; then
+            title="LeetCode session expired - refresh LC_SESSION / LC_CSRF"
+            body="The LeetCode cookies are no longer valid.
+
+          1. Log in to leetcode.com in your browser.
+          2. DevTools -> Application -> Cookies -> copy \`LEETCODE_SESSION\` and \`csrftoken\`.
+          3. Update the \`LC_SESSION\` and \`LC_CSRF\` repo secrets.
+          4. Re-run the workflow manually and close this issue.
+
+          Failed run: $RUN_URL"
+          else
+            title="LeetCode request blocked (likely Cloudflare)"
+            body="LeetCode returned a Cloudflare challenge / 403 to the GitHub runner.
+
+          Failed run: $RUN_URL"
+          fi
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
