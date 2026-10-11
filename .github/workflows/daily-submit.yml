@@ -50,6 +50,7 @@ jobs:
           SOLUTION: ${{ inputs.solution }}
           DELAY_MODE: sleep
           MAX_DELAY_HOURS: "5"
+          SUBMISSIONS_PER_RUN: "2-3"
           DELAY_SALT: ${{ secrets.DELAY_SALT }}
 
       - name: Commit log

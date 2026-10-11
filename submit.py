@@ -8,6 +8,8 @@ Environment:
                "hourly" - meant for an hourly cron; submit only during the
                           hour derived from today's date + DELAY_SALT
   MAX_DELAY_HOURS  upper bound for "sleep" mode (default 5)
+  SUBMISSIONS_PER_RUN  "N" or a range like "2-3" (default 1); each is placed at
+               its own random time inside the delay window
   DELAY_SALT   secret salt for "hourly" mode
   SOLUTION     force a specific solution file name (e.g. two-sum.py3)
 """
@@ -87,11 +89,35 @@ def truthy(value: str | None) -> bool:
 # ---------------------------------------------------------------- timing
 
 
-def plan_delay() -> int | None:
-    """Seconds to sleep before submitting, or None if this run should skip."""
+def submission_count() -> int:
+    """Parse SUBMISSIONS_PER_RUN, either "N" or a range like "2-3"."""
+    raw = os.environ.get("SUBMISSIONS_PER_RUN", "1").strip() or "1"
+    try:
+        low, _, high = raw.partition("-")
+        low_n = int(low)
+        high_n = int(high) if high else low_n
+    except ValueError:
+        raise Fatal(f"Invalid SUBMISSIONS_PER_RUN={raw!r}", EXIT_CONFIG)
+    if low_n < 1 or high_n < low_n:
+        raise Fatal(f"Invalid SUBMISSIONS_PER_RUN={raw!r}", EXIT_CONFIG)
+    return random.randint(low_n, high_n)
+
+
+def spread(count: int, window: int, min_gap: int) -> list[int]:
+    """`count` sorted random offsets in [0, window], at least `min_gap` apart when possible."""
+    min_gap = min(min_gap, window // max(count, 1))
+    for _ in range(1000):
+        offsets = sorted(random.randint(0, window) for _ in range(count))
+        if all(b - a >= min_gap for a, b in zip(offsets, offsets[1:])):
+            return offsets
+    return [i * (window // count) for i in range(count)]
+
+
+def plan_schedule(count: int) -> list[int] | None:
+    """Offsets in seconds from now for each submission, or None if this run should skip."""
     if truthy(os.environ.get("NO_DELAY")):
         log("NO_DELAY set, submitting immediately")
-        return 0
+        return [i * random.randint(15, 30) for i in range(count)]
 
     mode = os.environ.get("DELAY_MODE", "sleep").strip().lower()
 
@@ -103,10 +129,10 @@ def plan_delay() -> int | None:
         if now.hour != target_hour:
             log("Not the target hour for today, exiting")
             return None
-        return random.randint(0, 50 * 60)
+        return spread(count, 50 * 60, 5 * 60)
 
     max_hours = float(os.environ.get("MAX_DELAY_HOURS", "5"))
-    return random.randint(0, int(max_hours * 3600))
+    return spread(count, int(max_hours * 3600), 20 * 60)
 
 
 # ---------------------------------------------------------------- solutions
@@ -289,45 +315,54 @@ def main() -> int:
     if not session_cookie or not csrf:
         raise Fatal("LC_SESSION and LC_CSRF must both be set", EXIT_CONFIG)
 
-    delay = plan_delay()
-    if delay is None:
+    # A forced SOLUTION is a one-off test, so it is submitted exactly once.
+    count = 1 if os.environ.get("SOLUTION", "").strip() else submission_count()
+    schedule = plan_schedule(count)
+    if schedule is None:
         set_output("result", "skipped")
         return EXIT_OK
-
-    solution = pick_solution()
-    slug = solution.stem
-    lang = LANG_BY_EXT[solution.suffix]
-    code = solution.read_text(encoding="utf-8")
-    log(f"Selected {solution.name} (slug={slug}, lang={lang})")
+    log("Plan: " + ", ".join(f"+{s // 60}m{s % 60:02d}s" for s in schedule))
 
     client = LeetCodeClient(session_cookie, csrf)
     username = client.check_session()
     log(f"Session OK, signed in as {username}")
 
-    if delay:
-        log(f"Sleeping {delay // 60} min {delay % 60} s before submitting")
-        time.sleep(delay)
-        # The session could have been invalidated during a long sleep.
-        client.check_session()
+    start = time.monotonic()
+    failed = 0
+    for n, offset in enumerate(schedule, 1):
+        wait = offset - (time.monotonic() - start)
+        if wait > 0:
+            log(f"[{n}/{count}] Sleeping {int(wait) // 60} min {int(wait) % 60} s")
+            time.sleep(wait)
+            if wait > 60:
+                # The session could have been invalidated during a long sleep.
+                client.check_session()
 
-    qid = client.question_id(slug)
-    log(f"Question id for {slug}: {qid}")
+        solution = pick_solution()
+        slug = solution.stem
+        lang = LANG_BY_EXT[solution.suffix]
+        code = solution.read_text(encoding="utf-8")
+        log(f"[{n}/{count}] Selected {solution.name} (slug={slug}, lang={lang})")
 
-    submission_id = client.submit(slug, qid, lang, code)
-    log(f"Submitted, submission_id={submission_id}")
+        qid = client.question_id(slug)
+        submission_id = client.submit(slug, qid, lang, code)
+        log(f"[{n}/{count}] Submitted question {qid}, submission_id={submission_id}")
 
-    result = client.wait_for_result(slug, submission_id)
-    status_msg = result.get("status_msg", "Unknown")
-    log(
-        f"Result: {status_msg} "
-        f"({result.get('total_correct')}/{result.get('total_testcases')} tests, "
-        f"runtime {result.get('status_runtime')}, memory {result.get('status_memory')})"
-    )
+        result = client.wait_for_result(slug, submission_id)
+        status_msg = result.get("status_msg", "Unknown")
+        log(
+            f"[{n}/{count}] Result: {status_msg} "
+            f"({result.get('total_correct')}/{result.get('total_testcases')} tests, "
+            f"runtime {result.get('status_runtime')}, memory {result.get('status_memory')})"
+        )
 
-    append_log(slug, submission_id, status_msg)
-    set_output("result", "submitted")
+        append_log(slug, submission_id, status_msg)
+        set_output("result", "submitted")
+        if status_msg != "Accepted":
+            failed += 1
 
-    if status_msg != "Accepted":
+    if failed:
+        log(f"{failed}/{count} submissions were not Accepted")
         set_output("failure", "not_accepted")
         return EXIT_NOT_ACCEPTED
     return EXIT_OK
