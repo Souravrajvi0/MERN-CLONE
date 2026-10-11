@@ -6,3 +6,5 @@ timestamp_utc,slug,submission_id,status
 2026-10-11T07:55:18+00:00,maximum-subgraph-score-in-a-tree,2169056773,Accepted
 2026-10-11T08:04:51+00:00,separate-black-and-white-balls,2169063602,Accepted
 2026-10-11T08:05:11+00:00,number-of-closed-islands,2169063823,Accepted
+2026-10-11T08:08:27+00:00,invert-binary-tree,2169066076,Accepted
+2026-10-11T08:08:42+00:00,minimum-score-of-a-path-between-two-cities,2169066243,Accepted
