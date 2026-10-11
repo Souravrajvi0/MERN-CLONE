@@ -151,10 +151,20 @@ def pick_solution() -> Path:
         raise Fatal(f"SOLUTION={forced} not found in {SOLUTIONS_DIR}", EXIT_CONFIG)
 
     last_used: dict[str, str] = {}
+    last_status: dict[str, str] = {}
     for row in read_log():
         last_used[row["slug"]] = row["timestamp_utc"]
-    # Never-submitted files sort first (""), then oldest submission.
-    return min(files, key=lambda p: (last_used.get(p.stem, ""), p.name))
+        last_status[row["slug"]] = row["status"]
+
+    # Skip solutions whose last submission failed so one bad file can't fail every run.
+    usable = [p for p in files if last_status.get(p.stem, "Accepted") == "Accepted"]
+    if not usable:
+        raise Fatal("Every solution's last submission failed; fix or remove them", EXIT_CONFIG)
+
+    fresh = [p for p in usable if p.stem not in last_used]
+    if fresh:
+        return random.choice(fresh)
+    return min(usable, key=lambda p: last_used[p.stem])
 
 
 # ---------------------------------------------------------------- http
