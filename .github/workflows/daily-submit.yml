@@ -17,6 +17,10 @@ on:
         description: "Force a specific solution file (e.g. two-sum.py3), blank = rotate"
         required: false
         default: ""
+      count:
+        description: "How many problems to submit (e.g. 2 or 1-3), blank = 2-3"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -50,7 +54,7 @@ jobs:
           SOLUTION: ${{ inputs.solution }}
           DELAY_MODE: sleep
           MAX_DELAY_HOURS: "5"
-          SUBMISSIONS_PER_RUN: "2-3"
+          SUBMISSIONS_PER_RUN: ${{ inputs.count || '2-3' }}
           DELAY_SALT: ${{ secrets.DELAY_SALT }}
 
       - name: Commit log
