@@ -10,3 +10,5 @@ timestamp_utc,slug,submission_id,status
 2026-10-11T08:08:42+00:00,minimum-score-of-a-path-between-two-cities,2169066243,Accepted
 2026-10-12T04:17:08+00:00,circular-permutation-in-binary-representation,2169813699,Accepted
 2026-10-12T04:17:21+00:00,clumsy-factorial,2169813870,Accepted
+2026-10-13T21:35:31+00:00,successful-pairs-of-spells-and-potions,2171612370,Accepted
+2026-10-13T23:10:44+00:00,maximum-profit-from-valid-topological-order-in-dag,2171639782,Accepted
