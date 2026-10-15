@@ -12,3 +12,4 @@ timestamp_utc,slug,submission_id,status
 2026-10-12T04:17:21+00:00,clumsy-factorial,2169813870,Accepted
 2026-10-13T21:35:31+00:00,successful-pairs-of-spells-and-potions,2171612370,Accepted
 2026-10-13T23:10:44+00:00,maximum-profit-from-valid-topological-order-in-dag,2171639782,Accepted
+2026-10-15T17:18:23+00:00,first-matching-character-from-both-ends,2173236889,Accepted
