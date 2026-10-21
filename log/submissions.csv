@@ -16,3 +16,5 @@ timestamp_utc,slug,submission_id,status
 2026-10-16T18:32:54+00:00,remove-adjacent-almost-equal-characters,2174090832,Accepted
 2026-10-16T19:02:09+00:00,valid-triangle-number,2174108534,Accepted
 2026-10-17T16:04:22+00:00,delete-and-earn,2174696772,Accepted
+2026-10-21T18:28:14+00:00,first-day-where-you-have-been-in-all-the-rooms,2178257175,Accepted
+2026-10-21T19:10:05+00:00,multi-source-flood-fill,2178289898,Accepted
