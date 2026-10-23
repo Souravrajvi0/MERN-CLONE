@@ -21,3 +21,6 @@ timestamp_utc,slug,submission_id,status
 2026-10-22T18:42:29+00:00,pyramid-transition-matrix,2179117298,Accepted
 2026-10-22T19:35:20+00:00,remove-element,2179151332,Accepted
 2026-10-22T20:49:38+00:00,alternating-digit-sum,2179186267,Accepted
+2026-10-23T18:58:38+00:00,longest-strictly-increasing-subsequence-with-non-zero-bitwise-and,2179953658,Accepted
+2026-10-23T19:42:59+00:00,maximize-the-number-of-partitions-after-operations,2179978731,Accepted
+2026-10-23T20:16:19+00:00,kth-smallest-path-xor-sum,2179994070,Accepted
